@@ -1261,13 +1261,18 @@ impl InlineFlow {
     }
 
     pub fn baseline_offset_of_last_line(&self) -> Option<Au> {
-        // Find the last line that doesn't consist entirely of hypothetical boxes.
+        self.last_line_containing_real_fragments().map(|line| {
+            line.bounds.start.b + line.bounds.size.block - line.inline_metrics.depth_below_baseline
+        })
+    }
+
+    // Returns the last line that doesn't consist entirely of hypothetical boxes.
+    fn last_line_containing_real_fragments(&self) -> Option<&Line> {
         for line in self.lines.iter().rev() {
             if (line.range.begin().get()..line.range.end().get()).any(|index| {
                 !self.fragments.fragments[index as usize].is_hypothetical()
             }) {
-                return Some(line.bounds.start.b + line.bounds.size.block -
-                            line.inline_metrics.depth_below_baseline)
+                return Some(line)
             }
         }
         None
@@ -1496,8 +1501,8 @@ impl Flow for InlineFlow {
                 &mut AbsoluteAssignBSizesTraversal(layout_context.shared_context()));
         }
 
-        self.base.position.size.block = match self.lines.last() {
-            Some(ref last_line) => last_line.bounds.start.b + last_line.bounds.size.block,
+        self.base.position.size.block = match self.last_line_containing_real_fragments() {
+            Some(last_line) => last_line.bounds.start.b + last_line.bounds.size.block,
             None => Au(0),
         };
 
